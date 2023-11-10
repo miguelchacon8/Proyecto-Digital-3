@@ -23,6 +23,13 @@
 #include <sys/time.h>
 #include <time.h>
 #include <pthread.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
 
 #define SPI_CHANNEL	      0	// Canal SPI de la Raspberry Pi, 0 ó 1
 #define SPI_SPEED 	1500000	// Velocidad de la comunicación SPI (reloj, en HZ)
@@ -31,10 +38,14 @@
 #define BUTTON_PIN 21
 #define ALARM 22
 
+#define MSG_SIZE 50		// Tamaño (máximo) del mensaje. Puede ser mayor a 40.
+
 uint16_t get_ADC(int channel);	// prototipo
 void Bocina(void *ptr);
 void buttonPressed(void);
 void Actualizacion(void *ptr);
+void receive(void *ptr);
+void ipaddress(void);
 
 int UTR = 1;
 int flag_ADC = 0;
@@ -42,11 +53,88 @@ int flag_boton1 = 0;
 int num_evento = 0;
 float voltaje = 0;
 char hora[12];
+uint16_t ADCvalue;
+FILE *datos;
+char lectura[4];
+int i;
+char mensaje[30];
 
-int main(void)
+int sockfd, n;
+unsigned int length;
+struct sockaddr_in server, from;
+struct hostent *hp;
+char buffer[MSG_SIZE];
+
+char ipcomp[2][MSG_SIZE];
+
+void ADC(void *ptr){
+    while(1){
+        ADCvalue = get_ADC(ADC_CHANNEL);
+        sprintf(lectura, "%d\n", ADCvalue);
+        fputs(lectura, datos);
+        usleep(1000);
+        voltaje = ADCvalue*(3.3/1024);
+        if(ADCvalue >= 775){
+            if(flag_ADC != 1){
+                flag_ADC = 1;
+                num_evento = 3;
+                sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
+                printf("%s -> cambio el ADC\n", mensaje);
+                n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
+	            if(n < 0)
+		            error("Sendto");
+                fflush(stdout);
+            }
+        } 
+        else if(ADCvalue <= 155){
+            if(flag_ADC != 2){
+                flag_ADC = 2;
+                num_evento = 3;
+                sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
+                printf("%s -> cambio el ADC\n", mensaje);
+                n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
+	            if(n < 0)
+		            error("Sendto");
+                fflush(stdout);
+            }
+        }
+        else {
+            if(flag_ADC != 0){
+                flag_ADC = 0;
+                num_evento = 3;
+                sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
+                printf("%s -> cambio el ADC\n", mensaje);
+                n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
+	            if(n < 0)
+		            error("Sendto");
+                fflush(stdout);
+            }
+        }
+    }
+}
+
+int main(int argc, char *argv[])
 {
-    uint16_t ADCvalue;
-	FILE *datos;
+    if(argc != 3)
+	{
+		printf("usage %s hostname port\n", argv[0]);
+		exit(1);
+	}
+
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0); // Creates socket. Connectionless.
+	if(sockfd < 0)
+		error("socket");
+
+	server.sin_family = AF_INET;	// symbol constant for Internet domain
+	hp = gethostbyname(argv[1]);	// converts hostname input (e.g. 192.168.1.101)
+	if(hp == 0)
+		error("Unknown host");
+
+	memcpy((char *)&server.sin_addr, (char *)hp->h_addr, hp->h_length);
+	
+	server.sin_port = htons(atoi(argv[2]));	// port field
+	length = sizeof(struct sockaddr_in);	// size of structure
+
     datos = fopen("datos.txt", "w");
 	// Configura el SPI en la RPi
 	if(wiringPiSPISetup(SPI_CHANNEL, SPI_SPEED) < 0)
@@ -54,7 +142,6 @@ int main(void)
 		printf("wiringPiSPISetup falló.\n");
 		return(-1);
 	}
-    char lectura[4];
     
     wiringPiSetupGpio();
     pinMode(ALARM, OUTPUT);
@@ -62,9 +149,11 @@ int main(void)
     wiringPiISR(BUTTON_PIN, INT_EDGE_RISING, &buttonPressed); // Set up interrupt for button press
     
     //Creación de un hilo para la bocina
-    pthread_t thread2, thread3;
+    pthread_t thread2, thread3, thread4, threadrecv;
     pthread_create(&thread2, NULL, (void*)&Bocina, NULL);
     pthread_create(&thread3, NULL, (void*)&Actualizacion, NULL);
+    pthread_create(&thread4, NULL, (void*)&ADC, NULL);
+    pthread_create(&threadrecv, NULL, (void*)&receive, NULL);
     /// Obtener la hora
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -87,46 +176,9 @@ int main(void)
 	// no es una función muy precisa...
     
 	while(1){
-        int i;
-            char mensaje[30];
-            ADCvalue = get_ADC(ADC_CHANNEL);
-            sprintf(lectura, "%d\n", ADCvalue);
-            fputs(lectura, datos);
-            usleep(1000);
-            voltaje = ADCvalue*(3.3/1024);
-            if(ADCvalue >= 775){
-                if(flag_ADC != 1){
-                    flag_ADC = 1;
-                    num_evento = 3;
-                    sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
-                    printf("%s -> cambio el ADC\n", mensaje);
-                    fflush(stdout);
-                }
-            } 
-            else if(ADCvalue <= 155){
-                if(flag_ADC != 2){
-                    flag_ADC = 2;
-                    num_evento = 3;
-                    sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
-                    printf("%s -> cambio el ADC\n", mensaje);
-                    fflush(stdout);
-                    
-                }
-            }
-            else {
-                if(flag_ADC != 0){
-                    flag_ADC = 0;
-                    num_evento = 3;
-                    sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
-                    printf("%s -> cambio el ADC\n", mensaje);
-                    fflush(stdout);
-                    
-                }
-            }
-            
-        
+         
 	}
-     
+    //fclose(datos);
   return 0;   
 }
 
@@ -170,6 +222,17 @@ uint16_t get_ADC(int ADC_chan)
 	return(resultado);
 }
 
+void receive(void *ptr){
+    while(1){
+        n = recvfrom(sockfd, buffer, MSG_SIZE, 0, (struct sockaddr *)&from, &length);
+        printf("\nMessage receive: %s\n", buffer);
+        memset(buffer, 0, MSG_SIZE);
+	    if(n < 0)
+		    error("Sendto");
+        usleep(1000);
+    }
+}
+
 void buttonPressed(void) {
     char mensaje[30];
     flag_boton1 = 1;
@@ -179,6 +242,9 @@ void buttonPressed(void) {
     delay(500); // Wait for 500ms to debounce
     sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
     printf("%s\n", mensaje);
+    n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
+	if(n < 0)
+	    error("Sendto");
     fflush(stdout);
     flag_boton1 = 0;
 }
@@ -205,8 +271,47 @@ void Actualizacion(void *ptr){
         char mensaje[30];
         sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
         printf("%s\n", mensaje);
+        n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
+	    if(n < 0)
+		    error("Sendto");
         fflush(stdout);
         sleep(2);
     }
 }
 
+/*void ipaddress(void){ //Funcion para obtener las ip de la maquina
+	struct ifaddrs *addrs, *tmp; //Variables a utilizar
+    char ip[INET_ADDRSTRLEN], ad[] = "10.0."; /
+    int i = 0;
+
+    if (getifaddrs(&addrs) == -1) //Se obtienen las ip de la maquina
+    {
+        perror("getifaddrs"); //Imprime el error
+        exit(1); //Termina el programa
+    }
+
+    tmp = addrs; //Se guarda la ip en la variable
+    while (tmp) //Se recorre la lista de ip
+    {
+        if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_INET) //Se verifica que sea una ip
+        {
+            struct sockaddr_in *pAddr = (struct sockaddr_in *)tmp->ifa_addr; //Se guarda la ip en la variable
+            inet_ntop(AF_INET, &pAddr->sin_addr, ip, INET_ADDRSTRLEN); //Se guarda la ip en la variable
+            if (strncmp(ip, ad, 7) == 0) //Se verifica que sea una ip de la red
+            {
+                strcpy(ipcomp[i], ip); //Se guarda la ip en la variable global
+                i++;     		  //Se aumenta el contador
+            }
+        }
+        tmp = tmp->ifa_next; //Se pasa a la siguiente ip
+    }
+	printf("IP: %s\n", ipcomp[0]); //Se imprime la ip
+	printf("IP: %s\n", ipcomp[1]); //Se imprime la ip
+    freeifaddrs(addrs); //Se libera la memoria
+	return;
+}*/
+void error(const char *msg)
+{
+	perror(msg);
+	exit(0);
+}
