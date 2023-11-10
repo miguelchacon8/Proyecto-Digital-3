@@ -67,28 +67,19 @@ char buffer[MSG_SIZE];
 
 char ipcomp[2][MSG_SIZE];
 
+sem_t semaforo;
+
 void ADC(void *ptr){
     while(1){
         ADCvalue = get_ADC(ADC_CHANNEL);
         sprintf(lectura, "%d\n", ADCvalue);
         fputs(lectura, datos);
         usleep(1000);
+	sema_wait(&semaforo);
         voltaje = ADCvalue*(3.3/1024);
-        if(ADCvalue >= 775){
+        if(ADCvalue >= 775 || ADCvalue <= 155){
             if(flag_ADC != 1){
                 flag_ADC = 1;
-                num_evento = 3;
-                sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
-                printf("%s -> cambio el ADC\n", mensaje);
-                n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
-	            if(n < 0)
-		            error("Sendto");
-                fflush(stdout);
-            }
-        } 
-        else if(ADCvalue <= 155){
-            if(flag_ADC != 2){
-                flag_ADC = 2;
                 num_evento = 3;
                 sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
                 printf("%s -> cambio el ADC\n", mensaje);
@@ -110,11 +101,13 @@ void ADC(void *ptr){
                 fflush(stdout);
             }
         }
+	sem_post(&semaforo);
     }
 }
 
 int main(int argc, char *argv[])
 {
+sem_init(&semaforo, 0, 1);
     if(argc != 3)
 	{
 		printf("usage %s hostname port\n", argv[0]);
@@ -240,7 +233,9 @@ void buttonPressed(void) {
     printf("Button pressed!\n");
     fflush(stdout);
     delay(500); // Wait for 500ms to debounce
+    sem_wait(&semaforo);
     sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
+    sem_post(&semaforo);
     printf("%s\n", mensaje);
     n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
 	if(n < 0)
@@ -269,7 +264,9 @@ void Actualizacion(void *ptr){
     while(1){
         num_evento = 6;
         char mensaje[30];
+	sem_wait(&semaforo);
         sprintf(mensaje, "%d %d %s %d %.2f", UTR, num_evento, hora, flag_boton1, voltaje);
+	sem_post(&semaforo);
         printf("%s\n", mensaje);
         n = sendto(sockfd, mensaje, strlen(mensaje), 0, (const struct sockaddr *)&server, length);
 	    if(n < 0)
