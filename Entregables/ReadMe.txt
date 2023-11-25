@@ -3,6 +3,7 @@ Electrónica Digital 3
 Proyecto final
 Sistema SCADA simplificado
 Autores: Luis Carranza, Miguel Chacón & Oscar Donis
+Última actualización: 24/11/2023
 
 Descripción del proyecto:
 El proyecto representa a un sistema SCADA simplificado, que consta de un historiador y distintos RTUs (según sea la necesidad) entre los cuales
@@ -40,3 +41,31 @@ python Grafica_ADC.py
 Notas: es importante considerar la nota descrita en el encabezado del código del Historiador en la que se indica lo que se debe realizar en 
 caso de ejecutar el programa en un entorno Windows o bien Linux. También se debe considerar que si se desea conectar más de 10 RTUs se debe
 cambiar el tamaño máximo de conexiones en el código del historiador. 
+
+Conexiones físicas para el RTU
+El RTU debe conectarse utilizando el pinout estándar GPIO, de modo que las conexiones de los pines son los siguientes:
+Botones: 
+GPIO 21 -> botón 1
+GPIO 20 -> botón 2
+Interruptores
+GPIO 24 -> Dip 1
+GPIO 25 -> Dip 2
+Control de la alarma:
+GPIO 22 -> Este iría conectado a la base del transistor o mosfet que genera el pulso para generar la alarma con la bocina. 
+LEDS
+GPIO 26 -> LED1
+GPIO 19 -> LED2
+Interrupciones para LEDS -> estos pines irían conectados a los pines XX XX del ESP32 que sirven para activar/desactivar LEDs con IoT
+GPIO 17 -> Interrupción LED1
+GPIO 27 -> Interrupción LED2
+Canal SPI para la lectura ADC:
+SPICE0 se conecta a CS del MCP3002 (pin 1)
+SPIMOSI -> Din del MCP3002 (pin 5)
+SPIMISO -> Dout del MCP3002 (pin 6)
+SPISCLK -> CLK del MCP3002 (pin 7)
+- Importante considerar que el módulo ADC se debe conectar a 3.3V y Vss en sus pines 8 y 4 respectivamente.
+- CH0 del MCP3002 se conecta al potenciómetro 
+- Los LED se deben conectar con su respectiva resistencia a tierra entre 100 y 330 ohms
+- Los pushbuttons se deben conectar en configuración pull-down para que cuando se presione envíe un 1 a la Raspberry
+- Los DIP switches no importa su conexión ya que este se activa en el cambio. Se hicieron las pruebas con conexión pull-down pero no
+es relevante siempre que el usuario entienda cuándo es 1 y 0.
