@@ -3,7 +3,7 @@
 	Proyecto Final - Sistema SCADA simplificado
 	Código del Historiador
 	Integrantes de grupo: Luis Carranza, Miguel Chacón y Oscar Donis
-	
+	Última actualización: 24/11/2023
 	Instrucciones: Para compilar el programa debe ingresar el comando:
 	gcc Historiador.c - o Historiador -lpthread -lresolv 
 
