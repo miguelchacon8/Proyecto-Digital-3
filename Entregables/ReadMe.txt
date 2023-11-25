@@ -16,6 +16,8 @@ El RTU registra los siguientes eventos:
 4 - Se recibió un comando
 5 - Evento IoT
 6 - Actualización periódica de 2s
+El formato de las actualizaciones que envía el RTU es el siguiente:
+#RTU #EVENTO HORA PUSH1 PUSH2 DIP1 DIP2 LED1 LED2 ADC
 El historiador por su parte permite enviar comandos a través de un menú, donde se pueden verificar las actualizaciones, revisar el listado de 
 RTUS conectados con su ip, generar un archivo log y encender/apagar LEDs de cada RTU. 
 
