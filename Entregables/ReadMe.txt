@@ -71,3 +71,7 @@ SPISCLK -> CLK del MCP3002 (pin 7)
 - Los pushbuttons se deben conectar en configuración pull-down para que cuando se presione envíe un 1 a la Raspberry
 - Los DIP switches no importa su conexión ya que este se activa en el cambio. Se hicieron las pruebas con conexión pull-down pero no
 es relevante siempre que el usuario entienda cuándo es 1 y 0.
+Conexiones físicas para el ESP32
+Para la comunicación con el RTU es ESP32 Debe de utilizar:
+GPIO 16 -> LED1
+GPIO 17 -> LED2
