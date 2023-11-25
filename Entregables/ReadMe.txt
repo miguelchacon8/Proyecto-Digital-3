@@ -57,7 +57,7 @@ GPIO 22 -> Este iría conectado a la base del transistor o mosfet que genera el 
 LEDS
 GPIO 26 -> LED1
 GPIO 19 -> LED2
-Interrupciones para LEDS -> estos pines irían conectados a los pines XX XX del ESP32 que sirven para activar/desactivar LEDs con IoT
+Interrupciones para LEDS -> estos pines irían conectados a los pines GPIO16 y GPIO17 del ESP32 que sirven para activar/desactivar LEDs con IoT
 GPIO 17 -> Interrupción LED1
 GPIO 27 -> Interrupción LED2
 Canal SPI para la lectura ADC:
