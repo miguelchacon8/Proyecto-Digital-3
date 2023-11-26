@@ -5,6 +5,7 @@ Sistema SCADA simplificado
 Autores: Luis Carranza, Miguel Chacón & Oscar Donis
 Última actualización: 24/11/2023
 
+Link al video del proyecto: https://youtu.be/GcYFSowt3Ow 
 Descripción del proyecto:
 El proyecto representa a un sistema SCADA simplificado, que consta de un historiador y distintos RTUs (según sea la necesidad) entre los cuales
 se comparten información. Los RTUS son capaces de enviar actualizaciones periódicas al RTU sobre el estado de los botones, leds y lectura de ADC.
